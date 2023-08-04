@@ -72,11 +72,11 @@
     ::li::detail::khash_impl( __TIME__ __DATE__ LAZY_IMPORTER_STRINGIZE_EXPAND(__LINE__) LAZY_IMPORTER_STRINGIZE_EXPAND(__COUNTER__), 2166136261 ))
     
 #ifdef _WIN64
-	using pointer = unsigned long long;
-	using size = unsigned long long;
+using pointer = unsigned long long;
+using size__t = unsigned long long;
 #else
-	using pointer = unsigned long;
-	using size = unsigned long;
+using pointer = unsigned long;
+using size__t = unsigned long;
 #endif
 
 namespace li { namespace detail {
@@ -190,10 +190,10 @@ namespace li { namespace detail {
 			unsigned long NumberOfProcessors;
 			unsigned long NtGlobalFlag;
 			unsigned long long CriticalSectionTimeout;
-			size HeapSegmentReserve;
-			size HeapSegmentCommit;
-			size HeapDeCommitTotalFreeThreshold;
-			size HeapDeCommitFreeBlockThreshold;
+			size__t HeapSegmentReserve;
+			size__t HeapSegmentCommit;
+			size__t HeapDeCommitTotalFreeThreshold;
+			size__t HeapDeCommitFreeBlockThreshold;
 			unsigned long NumberOfHeaps;
 			unsigned long MaximumNumberOfHeaps;
 			void** ProcessHeaps;
