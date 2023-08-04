@@ -32,6 +32,7 @@
 
 #define LI_FN_DEF(name) ::li::detail::lazy_function<LAZY_IMPORTER_KHASH(#name), name>()
 
+#define LI_BASE() ::li::detail::lazy_module<NULL>()
 #define LI_MODULE(name) ::li::detail::lazy_module<LAZY_IMPORTER_KHASH(name)>()
 
 #ifndef LAZY_IMPORTER_CPP_FORWARD
@@ -672,7 +673,7 @@ namespace li { namespace detail {
         {
             Enum e;
             do {
-                if(hash(e.value->BaseDllName, get_offset(OHP)) == get_hash(OHP))
+                if(hash(e.value->BaseDllName, get_offset(OHP)) == get_hash(OHP) || OHP == NULL)
                     return (T)(e.value->DllBase);
             } while(e.next());
             return {};
