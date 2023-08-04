@@ -69,11 +69,76 @@
 
 #define LAZY_IMPORTER_KHASH(str) ::li::detail::khash(str, \
     ::li::detail::khash_impl( __TIME__ __DATE__ LAZY_IMPORTER_STRINGIZE_EXPAND(__LINE__) LAZY_IMPORTER_STRINGIZE_EXPAND(__COUNTER__), 2166136261 ))
+    
+#ifdef _WIN64
+	using pointer = unsigned long long;
+	using size = unsigned long long;
+#else
+	using pointer = unsigned long;
+	using size = unsigned long;
+#endif
 
 namespace li { namespace detail {
 
     namespace win {
+    	
+			struct APISET_VALUE_ENTRY_V6 {
+				unsigned long Flags;
+				unsigned long NameOffset;
+				unsigned long NameSize;
+				unsigned long ValueOffset;
+				unsigned long ValueSize;
+			};
 
+			struct APISET_NAMESPACE_ENTRY_V6 {
+				unsigned long Flags;
+				unsigned long NameOffset;
+				unsigned long Size;
+				unsigned long NameSize;
+				unsigned long DataOffset;
+				unsigned long Count;
+			};
+
+			struct APISET_NAMESPACE_ARRAY_V6 {
+				unsigned long Version;
+				unsigned long Size;
+				unsigned long Flags;
+				unsigned long Count;
+				unsigned long DataOffset;
+				unsigned long HashOffset;
+				unsigned long multiplier;
+				APISET_NAMESPACE_ENTRY_V6 NeArray[1];
+			};
+
+			struct APISET_NAMESPACE_ENTRY_V4 {
+				unsigned long Flags;
+				unsigned long NameOffset;
+				unsigned long NameSize;
+				unsigned long AliasOffset;
+				unsigned long AliesLength;
+				unsigned long data_offset;
+			};
+
+			struct APISET_NAMESPACE_ARRAY_V4 {
+				unsigned long Version;
+				unsigned long Size;
+				unsigned long Flags;
+				unsigned long Count;
+				APISET_NAMESPACE_ENTRY_V4 NeArray[1];
+			};
+
+			struct APISET_NAMESPACE_ENTRY_V2 {
+				unsigned long NameOffset;
+				unsigned long NameSize;
+				unsigned long DataOffset;
+			};
+
+			struct APISET_NAMESPACE_ARRAY_V2 {
+				unsigned long Version;
+				unsigned long Count;
+				APISET_NAMESPACE_ENTRY_V2 NeArray[1];
+			};
+			
         struct LIST_ENTRY_T {
             const char* Flink;
             const char* Blink;
@@ -92,13 +157,53 @@ namespace li { namespace detail {
             LIST_ENTRY_T  InLoadOrderModuleList;
         };
 
-        struct PEB_T {
-            unsigned char   Reserved1[2];
-            unsigned char   BeingDebugged;
-            unsigned char   Reserved2[1];
-            const char*     Reserved3[2];
-            PEB_LDR_DATA_T* Ldr;
-        };
+		struct PEB_T {
+			unsigned char   Reserved1[2];
+			unsigned char   BeingDebugged;
+			unsigned char   Reserved2[1];
+			const char* Reserved3[2];
+			PEB_LDR_DATA_T* Ldr;
+			void* ProcessParameters;
+			void* SubSystemData;
+			void* ProcessHeap;
+			void* FastPebLock;
+			void* AtlThunkSListPtr;
+			void* IFEOKey;
+			unsigned long CrossProcessFlags;
+			union {
+				void* kernel_callback_table;
+				void* user_shared_info_ptr;
+			};
+			unsigned long SystemReserved[1];
+			unsigned long atl_thunk_slist_ptr32;
+			void* ApiSetMap;
+			unsigned long TlsExpansionCounter;
+			void* TlsBitmap;
+			unsigned long TlsBitmapBits[2];
+			void* ReadOnlySharedMemoryBase;
+			void* SharedData;
+			void** ReadOnlyStaticServerData;
+			void* AnsiCodePageData;
+			void* OemCodePageData;
+			void* UnicodeCaseTableData;
+			unsigned long NumberOfProcessors;
+			unsigned long NtGlobalFlag;
+			unsigned long long CriticalSectionTimeout;
+			size HeapSegmentReserve;
+			size HeapSegmentCommit;
+			size HeapDeCommitTotalFreeThreshold;
+			size HeapDeCommitFreeBlockThreshold;
+			unsigned long NumberOfHeaps;
+			unsigned long MaximumNumberOfHeaps;
+			void** ProcessHeaps;
+			void* GdiSharedHandleTable;
+			void* ProcessStarterHelper;
+			unsigned long GdiDCAttributeList;
+			void* LoaderLock;
+			unsigned long OsMajorVersion;
+			unsigned long OsMinorVersion;
+			short OsBuildNumber;
+		};
 
         struct LDR_DATA_TABLE_ENTRY_T {
             LIST_ENTRY_T InLoadOrderLinks;
@@ -357,6 +462,21 @@ namespace li { namespace detail {
     {
         return reinterpret_cast<const win::PEB_LDR_DATA_T*>(peb()->Ldr);
     }
+    
+    LAZY_IMPORTER_FORCEINLINE const win::APISET_NAMESPACE_ARRAY_V2* apisetv2()
+	{
+		return reinterpret_cast<const win::APISET_NAMESPACE_ARRAY_V2*>(peb()->ApiSetMap);
+	}
+
+	LAZY_IMPORTER_FORCEINLINE const win::APISET_NAMESPACE_ARRAY_V4* apisetv4()
+	{
+		return reinterpret_cast<const win::APISET_NAMESPACE_ARRAY_V4*>(peb()->ApiSetMap);
+	}
+
+	LAZY_IMPORTER_FORCEINLINE win::APISET_NAMESPACE_ARRAY_V6* apisetv6()
+	{
+		return reinterpret_cast<win::APISET_NAMESPACE_ARRAY_V6*>(peb()->ApiSetMap);
+	}
 
     LAZY_IMPORTER_FORCEINLINE const win::IMAGE_NT_HEADERS* nt_headers(
         const char* base) noexcept
@@ -478,6 +598,36 @@ namespace li { namespace detail {
             return true;
         }
     };
+    
+    struct api_v6_module_enumerator {
+		using value_type = detail::win::APISET_NAMESPACE_ARRAY_V6;
+		
+		value_type* head;
+		detail::win::APISET_NAMESPACE_ENTRY_V6* value;
+
+		int counter;
+
+		LAZY_IMPORTER_FORCEINLINE api_v6_module_enumerator() noexcept
+			: api_v6_module_enumerator(apisetv6())
+		{}
+
+		LAZY_IMPORTER_FORCEINLINE
+			api_v6_module_enumerator(detail::win::APISET_NAMESPACE_ARRAY_V6* apiset) noexcept
+			: value(head->Count > 0 ? &head->NeArray[0] : 0), head(apiset), counter(0)
+		{}
+
+		LAZY_IMPORTER_FORCEINLINE void reset() noexcept
+		{
+			counter = 0;
+		}
+
+		LAZY_IMPORTER_FORCEINLINE bool next() noexcept
+		{
+			if (counter < head->Count)
+				value = &head->NeArray[++counter];
+			return counter < head->Count;
+		}
+	};
 
     // provides the cached functions which use Derive classes methods
     template<class Derived, class DefaultType = void*>
@@ -527,6 +677,65 @@ namespace li { namespace detail {
             } while(e.next());
             return {};
         }
+        
+        template<class T = void*, class Enum = unsafe_module_enumerator>
+			LAZY_IMPORTER_FORCEINLINE static T api(bool strict = false) noexcept
+			{
+				auto p = peb();
+				detail::win::UNICODE_STRING_T name;
+				wchar_t buffer[256];
+				if (p->OsMajorVersion >= 10 || (p->OsMajorVersion == 6 && p->OsMinorVersion == 4)) {
+					api_v6_module_enumerator e;
+					if (e.head->Count == 0 || e.value == 0)
+						return {};
+					do {
+						name.Length = e.value->NameSize + (strict ? sizeof(wchar_t) * 2 : 0); //idk why there is some gap, maybe ignore minor version diff in name
+						for (int i = 0; i < name.Length / sizeof(wchar_t); i++)
+							buffer[i] = ((wchar_t*)((pointer)e.head + e.value->NameOffset))[i];
+						if (strict) {
+							*(unsigned long long*)& buffer[name.Length / sizeof(wchar_t)] = 0x006c006c0064002e; //.dll //2e 00 64 00 6c 00 6c 00                   
+							name.Length += sizeof(unsigned long long);
+						}
+						name.Buffer = (wchar_t*)&buffer;
+						if (hash(name, get_offset(OHP)) == get_hash(OHP)) {
+							detail::win::APISET_VALUE_ENTRY_V6* ve = (detail::win::APISET_VALUE_ENTRY_V6*)((pointer)e.head + e.value->DataOffset);
+							detail::win::UNICODE_STRING_T moduleName;
+
+							moduleName.Buffer = (wchar_t*)((pointer)e.head + ve->ValueOffset);
+							moduleName.Length = ve->ValueSize;
+
+							Enum e2;
+							do {
+								if (e2.value->BaseDllName.Length != moduleName.Length)
+									continue;
+								bool same = true;
+								for (int i = 0; i < e2.value->BaseDllName.Length / sizeof(wchar_t); i++) {
+									wchar_t left = e2.value->BaseDllName.Buffer[i];
+									wchar_t right = moduleName.Buffer[i];
+									if (left >= 'A' && left <= 'Z')
+										left |= (1 << 5);
+									if (right >= 'A' && right <= 'Z')
+										right |= (1 << 5);
+									if (left != right)
+									{
+										same = false;
+										break;
+									}
+								}
+								if (same)
+									return (T)(e2.value->DllBase);
+							} while (e2.next());
+						}
+					} while (e.next());
+				}
+				else if (p->OsMajorVersion == 6 && p->OsMinorVersion > 0) {
+
+				}
+				else {
+
+				}
+				return {};
+			}
 
         template<class T = void*, class Ldr>
         LAZY_IMPORTER_FORCEINLINE static T in(Ldr ldr) noexcept
